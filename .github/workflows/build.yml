@@ -28,20 +28,21 @@ jobs:
           submodules: recursive # Holt automatisch das wichtige "cubiomes" Submodul
 
       - name: Install Qt
+        if: matrix.os == 'windows-latest'
         uses: jurplel/install-qt-action@v3
         with:
           version: ${{ matrix.qt-version }}
-          host: ${{ matrix.os == 'windows-latest' && 'windows' || 'linux' }}
+          host: 'windows'
           target: 'desktop'
-          arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
-          archives: ${{ matrix.os == 'windows-latest' && 'qtbase qttools' || 'qtbase' }}
+          arch: 'win64_msvc2019_64'
+          archives: 'qtbase qttools'
 
       # Build für Linux (Ubuntu)
       - name: Build (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev
+          sudo apt-get install -y libgl1-mesa-dev qtbase5-dev qt5-qmake qttools5-dev-tools
           qmake cubiomes-viewer.pro
           make
           # Verpackt die ausführbare Datei (sucht im Root und im bin-Ordner)
