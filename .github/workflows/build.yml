@@ -56,10 +56,12 @@ jobs:
         shell: cmd
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
-          qmake cubiomes-viewer.pro
+          qmake cubiomes-viewer.pro CONFIG+=release
           nmake
-          # Sucht die .exe (egal ob im Hauptverzeichnis, in "release" oder "bin") und zippt sie
-          powershell "Get-ChildItem -Path . -Filter cubiomes-viewer.exe -Recurse | Compress-Archive -DestinationPath cubiomes-viewer-windows.zip"
+          mkdir cubiomes-viewer
+          copy release\cubiomes-viewer.exe cubiomes-viewer\ || copy debug\cubiomes-viewer.exe cubiomes-viewer\ || copy cubiomes-viewer.exe cubiomes-viewer\
+          windeployqt --dir cubiomes-viewer cubiomes-viewer\cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
+          powershell "Compress-Archive -Path cubiomes-viewer -DestinationPath cubiomes-viewer-windows.zip"
 
       # Lädt die fertigen Dateien automatisch in das GitHub-Release hoch
       - name: Upload Release Assets
