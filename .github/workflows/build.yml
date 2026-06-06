@@ -34,6 +34,7 @@ jobs:
           host: ${{ matrix.os == 'windows-latest' && 'windows' || 'linux' }}
           target: 'desktop'
           arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
+          archives: ${{ matrix.os == 'windows-latest' && 'qtbase qttools' || 'qtbase' }}
 
       # Build für Linux (Ubuntu)
       - name: Build (Linux)
