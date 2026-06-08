@@ -43,6 +43,19 @@ int main() {
     int generated_biome = getBiomeAt(&g, 1, 0, -32, 0);
     printf("Successfully sampled biome at spawn (y=-32): ID %d (%s)\n", generated_biome, biome2str(mc_version, generated_biome));
 
+    // 6. Explicitly test multi-noise climateToBiome parameter matching
+    printf("Testing climateToBiome matching for sulfur_caves...\n");
+    uint64_t np[6] = {1500, 0, 0, 0, 1500, 1500}; // temp=1500, humid=0, continental=0, erosion=0, depth=1500, weirdness=1500
+    uint64_t dat = 0;
+    extern int climateToBiome(int mc, const uint64_t np[6], uint64_t *dat);
+    int match_biome = climateToBiome(mc_version, np, &dat);
+    if (match_biome == sulfur_caves) {
+        printf("SUCCESS: climateToBiome correctly returned sulfur_caves for matching parameters.\n");
+    } else {
+        printf("FAIL: climateToBiome returned %d (%s) instead of sulfur_caves.\n", match_biome, biome2str(mc_version, match_biome));
+        return 1;
+    }
+
     printf("\nAll automated tests PASSED. The implementation is robust and works perfectly!\n");
     return 0;
 }
