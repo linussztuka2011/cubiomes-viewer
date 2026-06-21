@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Startet den Build, sobald du ein Tag erstellst, das mit "v" beginnt (z.B. v1.0.0)
+      - 'v*'
 
 permissions:
   contents: write
@@ -27,7 +27,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: recursive # Holt automatisch das wichtige "cubiomes" Submodul
+          submodules: recursive
 
       - name: Install Qt
         if: matrix.os == 'windows-latest'
@@ -43,7 +43,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: ilammy/msvc-dev-cmd@v1
 
-      # Build für Linux (Ubuntu)
       - name: Build (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -51,29 +50,38 @@ jobs:
           sudo apt-get install -y libgl1-mesa-dev qtbase5-dev qt5-qmake qttools5-dev-tools
           qmake cubiomes-viewer.pro
           make
-          # Verpackt die ausführbare Datei (sucht im Root und im bin-Ordner)
           if [ -f "cubiomes-viewer" ]; then
             tar -czvf cubiomes-viewer-linux.tar.gz cubiomes-viewer
           elif [ -f "bin/cubiomes-viewer" ]; then
             tar -czvf cubiomes-viewer-linux.tar.gz bin/cubiomes-viewer
           fi
 
-      # Build für Windows
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
+        shell: bash
         run: |
           qmake cubiomes-viewer.pro CONFIG+=release
           nmake
-          mkdir cubiomes-viewer
-          copy release\cubiomes-viewer.exe cubiomes-viewer\ || copy debug\cubiomes-viewer.exe cubiomes-viewer\ || copy cubiomes-viewer.exe cubiomes-viewer\
-          windeployqt --dir cubiomes-viewer cubiomes-viewer\cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
-          powershell "Compress-Archive -Path cubiomes-viewer -DestinationPath ${{ matrix.artifact }}"
+          mkdir -p cubiomes-viewer
+          if [ -f "release/cubiomes-viewer.exe" ]; then
+            cp release/cubiomes-viewer.exe cubiomes-viewer/
+          elif [ -f "debug/cubiomes-viewer.exe" ]; then
+            cp debug/cubiomes-viewer.exe cubiomes-viewer/
+          elif [ -f "cubiomes-viewer.exe" ]; then
+            cp cubiomes-viewer.exe cubiomes-viewer/
+          else
+            echo "Executable not found!"
+            find . -name "*.exe"
+            exit 1
+          fi
+          windeployqt --dir cubiomes-viewer cubiomes-viewer/cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
+          7z a -tzip "${{ matrix.artifact }}" cubiomes-viewer/
 
-      # Lädt die fertigen Dateien automatisch in das GitHub-Release hoch
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
         with:
           files: ${{ matrix.artifact }}
-          fail_on_unmatched_files: false
+          fail_on_unmatched_files: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
