@@ -29,7 +29,7 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Qt
+      - name: Install Qt (Windows)
         if: matrix.os == 'windows-latest'
         uses: jurplel/install-qt-action@v3
         with:
@@ -37,6 +37,16 @@ jobs:
           host: 'windows'
           target: 'desktop'
           arch: 'win64_msvc2019_64'
+          archives: 'qtbase qttools'
+
+      - name: Install Qt (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: jurplel/install-qt-action@v3
+        with:
+          version: ${{ matrix.qt-version }}
+          host: 'linux'
+          target: 'desktop'
+          arch: 'gcc_64'
           archives: 'qtbase qttools'
 
       - name: Setup MSVC
@@ -47,35 +57,43 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgl1-mesa-dev qtbase5-dev qt5-qmake qttools5-dev-tools
-          qmake cubiomes-viewer.pro
+          sudo apt-get install -y libgl1-mesa-dev
+          qmake cubiomes-viewer.pro CONFIG+=release
           make
+          ls -R
           if [ -f "cubiomes-viewer" ]; then
             tar -czvf cubiomes-viewer-linux.tar.gz cubiomes-viewer
+          elif [ -f "release/cubiomes-viewer" ]; then
+            tar -czvf cubiomes-viewer-linux.tar.gz -C release cubiomes-viewer
           elif [ -f "bin/cubiomes-viewer" ]; then
-            tar -czvf cubiomes-viewer-linux.tar.gz bin/cubiomes-viewer
+            tar -czvf cubiomes-viewer-linux.tar.gz -C bin cubiomes-viewer
+          else
+            echo "Executable not found!"
+            find . -maxdepth 2 -executable -type f
+            exit 1
           fi
 
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        shell: bash
+        shell: cmd
         run: |
           qmake cubiomes-viewer.pro CONFIG+=release
           nmake
-          mkdir -p cubiomes-viewer
-          if [ -f "release/cubiomes-viewer.exe" ]; then
-            cp release/cubiomes-viewer.exe cubiomes-viewer/
-          elif [ -f "debug/cubiomes-viewer.exe" ]; then
-            cp debug/cubiomes-viewer.exe cubiomes-viewer/
-          elif [ -f "cubiomes-viewer.exe" ]; then
-            cp cubiomes-viewer.exe cubiomes-viewer/
-          else
-            echo "Executable not found!"
-            find . -name "*.exe"
+          dir /s
+          mkdir cubiomes-viewer
+          if exist release\cubiomes-viewer.exe (
+            copy release\cubiomes-viewer.exe cubiomes-viewer\
+          ) else if exist debug\cubiomes-viewer.exe (
+            copy debug\cubiomes-viewer.exe cubiomes-viewer\
+          ) else if exist cubiomes-viewer.exe (
+            copy cubiomes-viewer.exe cubiomes-viewer\
+          ) else (
+            echo Executable not found!
+            dir /s *.exe
             exit 1
-          fi
-          windeployqt --dir cubiomes-viewer cubiomes-viewer/cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
-          7z a -tzip "${{ matrix.artifact }}" cubiomes-viewer/
+          )
+          windeployqt --dir cubiomes-viewer cubiomes-viewer\cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
+          7z a -tzip "${{ matrix.artifact }}" cubiomes-viewer\
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
