@@ -18,8 +18,10 @@ jobs:
         include:
           - os: ubuntu-latest
             qt-version: '5.15.2'
+            artifact: cubiomes-viewer-linux.tar.gz
           - os: windows-latest
             qt-version: '5.15.2'
+            artifact: cubiomes-viewer-windows.zip
 
     steps:
       - name: Checkout code
@@ -36,6 +38,10 @@ jobs:
           target: 'desktop'
           arch: 'win64_msvc2019_64'
           archives: 'qtbase qttools'
+
+      - name: Setup MSVC
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/msvc-dev-cmd@v1
 
       # Build für Linux (Ubuntu)
       - name: Build (Linux)
@@ -55,22 +61,19 @@ jobs:
       # Build für Windows
       - name: Build (Windows)
         if: matrix.os == 'windows-latest'
-        shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           qmake cubiomes-viewer.pro CONFIG+=release
           nmake
           mkdir cubiomes-viewer
           copy release\cubiomes-viewer.exe cubiomes-viewer\ || copy debug\cubiomes-viewer.exe cubiomes-viewer\ || copy cubiomes-viewer.exe cubiomes-viewer\
           windeployqt --dir cubiomes-viewer cubiomes-viewer\cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
-          powershell "Compress-Archive -Path cubiomes-viewer -DestinationPath cubiomes-viewer-windows.zip"
+          powershell "Compress-Archive -Path cubiomes-viewer -DestinationPath ${{ matrix.artifact }}"
 
       # Lädt die fertigen Dateien automatisch in das GitHub-Release hoch
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            cubiomes-viewer-linux.tar.gz
-            cubiomes-viewer-windows.zip
+          files: ${{ matrix.artifact }}
+          fail_on_unmatched_files: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
