@@ -3,74 +3,138 @@ name: Build and Release
 on:
   push:
     tags:
-      - 'v*' # Startet den Build, sobald du ein Tag erstellst, das mit "v" beginnt (z.B. v1.0.0)
+      - 'v*'
 
 permissions:
   contents: write
 
 jobs:
-  build:
-    name: Build on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            qt-version: '5.15.2'
-          - os: windows-latest
-            qt-version: '5.15.2'
-
+  build-linux:
+    name: Build on Linux
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          submodules: recursive # Holt automatisch das wichtige "cubiomes" Submodul
+          submodules: recursive
 
-      - name: Install Qt
-        if: matrix.os == 'windows-latest'
-        uses: jurplel/install-qt-action@v3
-        with:
-          version: ${{ matrix.qt-version }}
-          host: 'windows'
-          target: 'desktop'
-          arch: 'win64_msvc2019_64'
-          archives: 'qtbase qttools'
-
-      # Build für Linux (Ubuntu)
       - name: Build (Linux)
-        if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1-mesa-dev qtbase5-dev qt5-qmake qttools5-dev-tools
           qmake cubiomes-viewer.pro
-          make
-          # Verpackt die ausführbare Datei (sucht im Root und im bin-Ordner)
+          make -j$(nproc)
           if [ -f "cubiomes-viewer" ]; then
             tar -czvf cubiomes-viewer-linux.tar.gz cubiomes-viewer
           elif [ -f "bin/cubiomes-viewer" ]; then
             tar -czvf cubiomes-viewer-linux.tar.gz bin/cubiomes-viewer
           fi
 
-      # Build für Windows
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cubiomes-viewer-linux
+          path: cubiomes-viewer-linux.tar.gz
+
+  build-windows:
+    name: Build on Windows
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '5.15.2'
+          host: 'windows'
+          target: 'desktop'
+          arch: 'win64_mingw81'
+          archives: 'qtbase qttools'
+
       - name: Build (Windows)
-        if: matrix.os == 'windows-latest'
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           qmake cubiomes-viewer.pro CONFIG+=release
-          nmake
+          mingw32-make -j2
           mkdir cubiomes-viewer
           copy release\cubiomes-viewer.exe cubiomes-viewer\ || copy debug\cubiomes-viewer.exe cubiomes-viewer\ || copy cubiomes-viewer.exe cubiomes-viewer\
           windeployqt --dir cubiomes-viewer cubiomes-viewer\cubiomes-viewer.exe --compiler-runtime --no-translations --no-system-d3d-compiler --no-opengl-sw --no-angle
           powershell "Compress-Archive -Path cubiomes-viewer -DestinationPath cubiomes-viewer-windows.zip"
 
-      # Lädt die fertigen Dateien automatisch in das GitHub-Release hoch
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cubiomes-viewer-windows
+          path: cubiomes-viewer-windows.zip
+
+  build-macos:
+    name: Build on macOS
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.7.3'
+          archives: 'x86_64 qtbase qttools'
+          cache: true
+
+      - name: Build
+        run: |
+          qmake CONFIG+=release cubiomes-viewer.pro
+          CFLAGS="-isysroot /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk" make -j$(sysctl -n hw.ncpu)
+
+      - name: Deploy
+        run: |
+          macdeployqt cubiomes-viewer.app -dmg -no-plugins
+
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cubiomes-viewer-macos
+          path: cubiomes-viewer.dmg
+
+  build-source:
+    name: Build Source Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build source bundle
+        run: |
+             # Create a source tarball excluding .git directories
+             tar --exclude='.git*' -czvf cubiomes-viewer-${{github.ref_name}}-src.tar.gz .
+
+      - name: Upload Source Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cubiomes-viewer-source
+          path: cubiomes-viewer-${{github.ref_name}}-src.tar.gz
+
+  release:
+    name: Create Release
+    needs: [build-linux, build-windows, build-macos, build-source]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
-          files: |
-            cubiomes-viewer-linux.tar.gz
-            cubiomes-viewer-windows.zip
+          files: artifacts/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
