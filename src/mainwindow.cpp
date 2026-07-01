@@ -698,7 +698,7 @@ void MainWindow::setMCList(bool experimental)
             continue;
         if (!experimental && mc != wi.mc)
         {
-            if (mc <= MC_1_0 || mc == MC_1_16_1 || mc == MC_1_19_2 || mc == MC_1_21_1 || mc == MC_1_21_WD)
+            if (mc <= MC_1_0 || mc == MC_1_16_1 || mc == MC_1_19_2 || mc == MC_1_21_1 || mc == MC_1_21_WD || mc == MC_26_2_S8)
                 continue;
         }
         mclist.append(mc2str(mc));
