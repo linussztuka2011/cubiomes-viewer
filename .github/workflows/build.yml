@@ -77,6 +77,8 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: cmd
         run: |
+          set "PATH=%VCToolsInstallDir%bin\Hostx64\x64;%PATH%"
+          where link
           qmake cubiomes-viewer.pro CONFIG+=release
           nmake
           dir /s
