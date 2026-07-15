@@ -27,6 +27,9 @@ QMAKE_CXXFLAGS          = $$QMAKE_CFLAGS
         QMAKE_CXXFLAGS += -std=gnu++11
     }
 }
+macx {
+    QMAKE_CXXFLAGS += -include arm_acle.h
+}
 greaterThan(QT_MAJOR_VERSION, 5) {
     DEFINES += QT_DISABLE_DEPRECATED_UP_TO=0x050F00
 } else {
