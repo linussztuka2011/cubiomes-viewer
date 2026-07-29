@@ -29,6 +29,7 @@ QMAKE_CXXFLAGS          = $$QMAKE_CFLAGS
 }
 macx {
     QMAKE_CXXFLAGS += -include arm_acle.h
+    QMAKE_LIBS_OPENGL -= -framework AGL
 }
 greaterThan(QT_MAJOR_VERSION, 5) {
     DEFINES += QT_DISABLE_DEPRECATED_UP_TO=0x050F00
